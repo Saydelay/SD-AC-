@@ -2,22 +2,22 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<title>Cheat-Scan Suche (flexibel)</title>
+<title>Cheat-Scan nach Code suchen</title>
 </head>
 <body>
   <h2>🔎 Scan-Code eingeben:</h2>
-  <input type="text" id="scanCode" placeholder="z.B. 7X8ZLQ2W" />
-  <button onclick="searchGists()">Scan laden</button>
+  <input type="text" id="scanCode" placeholder="z.B. YNBVP24N" />
+  <button onclick="searchByScanCode()">Scan laden</button>
 
   <pre id="output" style="white-space: pre-wrap; border:1px solid #ccc; padding:10px; margin-top:10px;"></pre>
 
 <script>
   const user = "saydelay";
 
-  async function searchGists() {
+  async function searchByScanCode() {
     const code = document.getElementById("scanCode").value.trim();
     const output = document.getElementById("output");
-    output.textContent = "Suche nach Scan-Code: " + code;
+    output.textContent = `Suche nach Scan-Code: ${code}`;
 
     if (!code) {
       output.textContent = "Bitte einen Scan-Code eingeben.";
@@ -25,36 +25,38 @@
     }
 
     try {
-      const res = await fetch(`https://api.github.com/users/${user}/gists?per_page=100`);
-      if (!res.ok) {
-        output.textContent = "Fehler beim Laden der Gists: " + res.statusText;
+      const response = await fetch(`https://api.github.com/users/${user}/gists?per_page=100`);
+      if (!response.ok) {
+        output.textContent = `Fehler beim Laden der Gists: ${response.status} ${response.statusText}`;
         return;
       }
-      const gists = await res.json();
+      const gists = await response.json();
       output.textContent += `\n${gists.length} Gists geladen.`;
 
-      // Suche alle Gists, deren Beschreibung den Code enthält (case-insensitive)
-      const matchingGists = gists.filter(g => 
-        g.description && g.description.toLowerCase().includes(code.toLowerCase())
+      // Suche Gist, der eine Datei scan_<code>.json hat
+      const targetFilename = `scan_${code}.json`;
+      const gist = gists.find(g =>
+        Object.keys(g.files).some(filename => filename === targetFilename)
       );
 
-      if (matchingGists.length === 0) {
-        output.textContent += "\nKein Scan mit diesem Code gefunden.";
+      if (!gist) {
+        output.textContent += `\nKein Scan mit dem Code '${code}' gefunden.`;
         return;
       }
 
-      output.textContent += `\n${matchingGists.length} passende Gists gefunden. Zeige ersten...`;
+      output.textContent += `\nGist gefunden: ${gist.html_url}`;
 
-      const gist = matchingGists[0];
-      output.textContent += `\nGist URL: ${gist.html_url}`;
+      // Dateiinhalt holen
+      const file = gist.files[targetFilename];
+      if (!file) {
+        output.textContent += `\nDatei ${targetFilename} im Gist nicht gefunden.`;
+        return;
+      }
 
-      const fileKey = Object.keys(gist.files)[0];
-      const content = gist.files[fileKey].content;
+      output.textContent += `\n\nInhalt:\n${file.content}`;
 
-      output.textContent += "\n\nInhalt:\n" + content;
-
-    } catch (e) {
-      output.textContent = "Fehler: " + e.message;
+    } catch (error) {
+      output.textContent = `Fehler: ${error.message}`;
     }
   }
 </script>

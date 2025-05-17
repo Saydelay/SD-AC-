@@ -2,63 +2,92 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<title>Cheat-Scan nach Code suchen</title>
+<title>Scan-Code Suche in Gists</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 800px; margin: 2rem auto; }
+  input { font-size: 1.2rem; padding: 0.5rem; width: 300px; }
+  button { font-size: 1.2rem; padding: 0.5rem 1rem; margin-left: 1rem; }
+  pre { background: #f0f0f0; padding: 1rem; border-radius: 5px; white-space: pre-wrap; max-height: 400px; overflow-y: auto; }
+  .gist { margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #ccc; }
+  .gist a { font-weight: bold; color: #0366d6; text-decoration: none; }
+</style>
 </head>
 <body>
-  <h2>🔎 Scan-Code eingeben:</h2>
-  <input type="text" id="scanCode" placeholder="z.B. YNBVP24N" />
-  <button onclick="searchByScanCode()">Scan laden</button>
 
-  <pre id="output" style="white-space: pre-wrap; border:1px solid #ccc; padding:10px; margin-top:10px;"></pre>
+<h1>GitHub Gist Scan-Code Suche</h1>
+
+<label for="scanCode">Scan-Code eingeben:</label><br />
+<input type="text" id="scanCode" placeholder="z.B. 7HA4LTY8" />
+<button onclick="searchGists()">Suchen</button>
+
+<div id="results" style="margin-top: 2rem;"></div>
 
 <script>
   const user = "saydelay";
 
-  async function searchByScanCode() {
-    const code = document.getElementById("scanCode").value.trim();
-    const output = document.getElementById("output");
-    output.textContent = `Suche nach Scan-Code: ${code}`;
+  async function searchGists() {
+    const code = document.getElementById("scanCode").value.trim().toLowerCase();
+    const resultsDiv = document.getElementById("results");
+    resultsDiv.innerHTML = "";
 
     if (!code) {
-      output.textContent = "Bitte einen Scan-Code eingeben.";
+      resultsDiv.textContent = "Bitte einen Scan-Code eingeben.";
       return;
     }
 
+    resultsDiv.textContent = "Lade Gists…";
+
     try {
-      const response = await fetch(`https://api.github.com/users/${user}/gists?per_page=100`);
-      if (!response.ok) {
-        output.textContent = `Fehler beim Laden der Gists: ${response.status} ${response.statusText}`;
-        return;
-      }
-      const gists = await response.json();
-      output.textContent += `\n${gists.length} Gists geladen.`;
-
-      // Suche Gist, der eine Datei scan_<code>.json hat
-      const targetFilename = `scan_${code}.json`;
-      const gist = gists.find(g =>
-        Object.keys(g.files).some(filename => filename === targetFilename)
-      );
-
-      if (!gist) {
-        output.textContent += `\nKein Scan mit dem Code '${code}' gefunden.`;
+      const res = await fetch(`https://api.github.com/users/${user}/gists?per_page=100`);
+      if (!res.ok) {
+        resultsDiv.textContent = `Fehler beim Laden der Gists: ${res.status} ${res.statusText}`;
         return;
       }
 
-      output.textContent += `\nGist gefunden: ${gist.html_url}`;
+      const gists = await res.json();
 
-      // Dateiinhalt holen
-      const file = gist.files[targetFilename];
-      if (!file) {
-        output.textContent += `\nDatei ${targetFilename} im Gist nicht gefunden.`;
+      // Filtere Gists, die den Code in Beschreibung oder Dateinamen enthalten
+      const filtered = gists.filter(gist => {
+        const desc = gist.description ? gist.description.toLowerCase() : "";
+        const files = Object.keys(gist.files).map(f => f.toLowerCase());
+        return desc.includes(code) || files.some(f => f.includes(code));
+      });
+
+      if (filtered.length === 0) {
+        resultsDiv.textContent = "Kein Scan mit diesem Code gefunden.";
         return;
       }
 
-      output.textContent += `\n\nInhalt:\n${file.content}`;
+      resultsDiv.textContent = `${filtered.length} Scan(s) gefunden:\n`;
 
-    } catch (error) {
-      output.textContent = `Fehler: ${error.message}`;
+      // Zeige jeden passenden Gist mit Link und erstem Dateiinhalte
+      for (const gist of filtered) {
+        const gistDiv = document.createElement("div");
+        gistDiv.className = "gist";
+
+        // Gist Link
+        const a = document.createElement("a");
+        a.href = gist.html_url;
+        a.target = "_blank";
+        a.textContent = `Gist: ${gist.html_url}`;
+        gistDiv.appendChild(a);
+
+        // Inhalt der ersten Datei anzeigen
+        const firstFileKey = Object.keys(gist.files)[0];
+        const content = gist.files[firstFileKey].content;
+
+        const pre = document.createElement("pre");
+        pre.textContent = content;
+        gistDiv.appendChild(pre);
+
+        resultsDiv.appendChild(gistDiv);
+      }
+
+    } catch (e) {
+      resultsDiv.textContent = "Fehler: " + e.message;
     }
   }
 </script>
+
 </body>
 </html>

@@ -2,22 +2,22 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<title>Cheat-Scan Ergebnis Debug</title>
+<title>Cheat-Scan Suche (flexibel)</title>
 </head>
 <body>
   <h2>🔎 Scan-Code eingeben:</h2>
   <input type="text" id="scanCode" placeholder="z.B. 7X8ZLQ2W" />
-  <button onclick="searchGist()">Scan laden</button>
+  <button onclick="searchGists()">Scan laden</button>
 
   <pre id="output" style="white-space: pre-wrap; border:1px solid #ccc; padding:10px; margin-top:10px;"></pre>
 
 <script>
   const user = "saydelay";
 
-  async function searchGist() {
+  async function searchGists() {
     const code = document.getElementById("scanCode").value.trim();
     const output = document.getElementById("output");
-    output.textContent = "Starte Suche nach Scan-Code: " + code;
+    output.textContent = "Suche nach Scan-Code: " + code;
 
     if (!code) {
       output.textContent = "Bitte einen Scan-Code eingeben.";
@@ -30,22 +30,27 @@
         output.textContent = "Fehler beim Laden der Gists: " + res.statusText;
         return;
       }
-
       const gists = await res.json();
-      output.textContent += `\n${gists.length} Gists geladen. Suche nach genauem Match...`;
+      output.textContent += `\n${gists.length} Gists geladen.`;
 
-      // Suche nach Beschreibung exakt gleich code (case-sensitive)
-      const gist = gists.find(g => g.description === code);
+      // Suche alle Gists, deren Beschreibung den Code enthält (case-insensitive)
+      const matchingGists = gists.filter(g => 
+        g.description && g.description.toLowerCase().includes(code.toLowerCase())
+      );
 
-      if (!gist) {
+      if (matchingGists.length === 0) {
         output.textContent += "\nKein Scan mit diesem Code gefunden.";
         return;
       }
 
-      output.textContent += `\nGist gefunden: ${gist.html_url}`;
+      output.textContent += `\n${matchingGists.length} passende Gists gefunden. Zeige ersten...`;
+
+      const gist = matchingGists[0];
+      output.textContent += `\nGist URL: ${gist.html_url}`;
 
       const fileKey = Object.keys(gist.files)[0];
       const content = gist.files[fileKey].content;
+
       output.textContent += "\n\nInhalt:\n" + content;
 
     } catch (e) {

@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<title>Cheat-Scan Ergebnis anzeigen</title>
+<title>Cheat-Scan Ergebnis Debug</title>
 </head>
 <body>
   <h2>🔎 Scan-Code eingeben:</h2>
@@ -11,45 +11,47 @@
 
   <pre id="output" style="white-space: pre-wrap; border:1px solid #ccc; padding:10px; margin-top:10px;"></pre>
 
-  <script>
-    const user = "saydelay"; // GitHub Benutzername hier anpassen
+<script>
+  const user = "saydelay";
 
-    async function searchGist() {
-      const code = document.getElementById("scanCode").value.trim();
-      if (!code) {
-        document.getElementById("output").textContent = "Bitte einen Scan-Code eingeben.";
+  async function searchGist() {
+    const code = document.getElementById("scanCode").value.trim();
+    const output = document.getElementById("output");
+    output.textContent = "Starte Suche nach Scan-Code: " + code;
+
+    if (!code) {
+      output.textContent = "Bitte einen Scan-Code eingeben.";
+      return;
+    }
+
+    try {
+      const res = await fetch(`https://api.github.com/users/${user}/gists?per_page=100`);
+      if (!res.ok) {
+        output.textContent = "Fehler beim Laden der Gists: " + res.statusText;
         return;
       }
 
-      document.getElementById("output").textContent = "Suche nach Gist…";
+      const gists = await res.json();
+      output.textContent += `\n${gists.length} Gists geladen. Suche nach genauem Match...`;
 
-      try {
-        // max 100 Gists vom Nutzer laden
-        const res = await fetch(`https://api.github.com/users/${user}/gists?per_page=100`);
-        if (!res.ok) {
-          document.getElementById("output").textContent = "Fehler beim Laden der Gists.";
-          return;
-        }
-        const gists = await res.json();
+      // Suche nach Beschreibung exakt gleich code (case-sensitive)
+      const gist = gists.find(g => g.description === code);
 
-        // Gist suchen, dessen Beschreibung genau den Code enthält (z.B. "CheatScan-7X8ZLQ2W")
-        const gist = gists.find(g => g.description && g.description.includes(code));
-
-        if (!gist) {
-          document.getElementById("output").textContent = "Kein Scan mit diesem Code gefunden.";
-          return;
-        }
-
-        // Inhalt der ersten Datei im Gist laden
-        const fileKey = Object.keys(gist.files)[0];
-        const content = gist.files[fileKey].content;
-
-        document.getElementById("output").textContent = content;
-
-      } catch (e) {
-        document.getElementById("output").textContent = "Fehler: " + e.message;
+      if (!gist) {
+        output.textContent += "\nKein Scan mit diesem Code gefunden.";
+        return;
       }
+
+      output.textContent += `\nGist gefunden: ${gist.html_url}`;
+
+      const fileKey = Object.keys(gist.files)[0];
+      const content = gist.files[fileKey].content;
+      output.textContent += "\n\nInhalt:\n" + content;
+
+    } catch (e) {
+      output.textContent = "Fehler: " + e.message;
     }
-  </script>
+  }
+</script>
 </body>
 </html>

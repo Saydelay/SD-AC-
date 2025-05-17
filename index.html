@@ -2,19 +2,19 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<title>Scan-Code Suche in Gists</title>
+<title>Erweiterte GitHub Gist Suche</title>
 <style>
-  body { font-family: Arial, sans-serif; max-width: 800px; margin: 2rem auto; }
-  input { font-size: 1.2rem; padding: 0.5rem; width: 300px; }
-  button { font-size: 1.2rem; padding: 0.5rem 1rem; margin-left: 1rem; }
-  pre { background: #f0f0f0; padding: 1rem; border-radius: 5px; white-space: pre-wrap; max-height: 400px; overflow-y: auto; }
-  .gist { margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #ccc; }
-  .gist a { font-weight: bold; color: #0366d6; text-decoration: none; }
+  body { font-family: Arial, sans-serif; max-width: 900px; margin: 2rem auto; }
+  input, button { font-size: 1.2rem; padding: 0.5rem; }
+  button { margin-left: 1rem; }
+  pre { background: #f0f0f0; padding: 1rem; border-radius: 5px; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+  .gist { margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid #ccc; }
+  .found { background: #d4edda; }
 </style>
 </head>
 <body>
 
-<h1>GitHub Gist Scan-Code Suche</h1>
+<h1>Erweiterte Suche nach Scan-Code in Gists</h1>
 
 <label for="scanCode">Scan-Code eingeben:</label><br />
 <input type="text" id="scanCode" placeholder="z.B. 7HA4LTY8" />
@@ -46,45 +46,55 @@
 
       const gists = await res.json();
 
-      // Filtere Gists, die den Code in Beschreibung oder Dateinamen enthalten
-      const filtered = gists.filter(gist => {
+      resultsDiv.textContent = `${gists.length} Gists geladen. Suche nach Scan-Code…`;
+
+      let foundCount = 0;
+
+      for (const gist of gists) {
         const desc = gist.description ? gist.description.toLowerCase() : "";
-        const files = Object.keys(gist.files).map(f => f.toLowerCase());
-        return desc.includes(code) || files.some(f => f.includes(code));
-      });
+        const fileNames = Object.keys(gist.files).map(f => f.toLowerCase());
 
-      if (filtered.length === 0) {
+        // Inhalt aller Dateien holen und durchsuchen
+        let codeInContent = false;
+        let contentSummary = "";
+
+        for (const fileName of Object.keys(gist.files)) {
+          const file = gist.files[fileName];
+          const content = file.content.toLowerCase();
+
+          if (content.includes(code)) {
+            codeInContent = true;
+            contentSummary = file.content.length > 500 ? file.content.slice(0, 500) + "..." : file.content;
+            break;
+          }
+        }
+
+        if (desc.includes(code) || fileNames.some(f => f.includes(code)) || codeInContent) {
+          foundCount++;
+          const gistDiv = document.createElement("div");
+          gistDiv.className = "gist found";
+
+          gistDiv.innerHTML = `
+            <strong>Gist gefunden:</strong> <a href="${gist.html_url}" target="_blank">${gist.html_url}</a><br/>
+            <strong>Beschreibung:</strong> ${gist.description || "(Keine Beschreibung)"}<br/>
+            <strong>Dateien:</strong> ${Object.keys(gist.files).join(", ")}<br/>
+            <strong>Code im Inhalt gefunden:</strong> ${codeInContent ? "Ja" : "Nein"}<br/>
+            <details>
+              <summary>Inhalt der Datei mit Code (Auszug)</summary>
+              <pre>${contentSummary || "(Kein Inhalt)"}</pre>
+            </details>
+          `;
+
+          resultsDiv.appendChild(gistDiv);
+        }
+      }
+
+      if (foundCount === 0) {
         resultsDiv.textContent = "Kein Scan mit diesem Code gefunden.";
-        return;
       }
 
-      resultsDiv.textContent = `${filtered.length} Scan(s) gefunden:\n`;
-
-      // Zeige jeden passenden Gist mit Link und erstem Dateiinhalte
-      for (const gist of filtered) {
-        const gistDiv = document.createElement("div");
-        gistDiv.className = "gist";
-
-        // Gist Link
-        const a = document.createElement("a");
-        a.href = gist.html_url;
-        a.target = "_blank";
-        a.textContent = `Gist: ${gist.html_url}`;
-        gistDiv.appendChild(a);
-
-        // Inhalt der ersten Datei anzeigen
-        const firstFileKey = Object.keys(gist.files)[0];
-        const content = gist.files[firstFileKey].content;
-
-        const pre = document.createElement("pre");
-        pre.textContent = content;
-        gistDiv.appendChild(pre);
-
-        resultsDiv.appendChild(gistDiv);
-      }
-
-    } catch (e) {
-      resultsDiv.textContent = "Fehler: " + e.message;
+    } catch (error) {
+      resultsDiv.textContent = "Fehler: " + error.message;
     }
   }
 </script>
